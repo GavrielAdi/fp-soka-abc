@@ -19,20 +19,27 @@ public class ABC {
 
     public int[] optimize() {
         int[] bestSolution = new int[fitnessFunction.getCloudletCount()];
-        double bestFitness = Double.MAX_VALUE;
+        double bestMakespan = Double.MAX_VALUE;
+        double bestDegreeOfImbalance = Double.MAX_VALUE;
 
         List<int[]> population = initializePopulation();
 
         for (int iter = 0; iter < maxIterations; iter++) {
             for (int i = 0; i < populationSize; i++) {
                 int[] currentSolution = population.get(i);
-                double currentFitness = fitnessFunction.calculateFitness(currentSolution);
 
-                if (currentFitness < bestFitness) {
-                    bestFitness = currentFitness;
+                // Hitung Makespan dan Degree of Imbalance
+                double makespan = fitnessFunction.calculateMakespan(currentSolution);
+                double degreeOfImbalance = fitnessFunction.calculateDegreeOfImbalance(currentSolution);
+
+                // Jika solusi lebih baik berdasarkan Makespan dan Degree of Imbalance
+                if (makespan < bestMakespan && degreeOfImbalance < bestDegreeOfImbalance) {
+                    bestMakespan = makespan;
+                    bestDegreeOfImbalance = degreeOfImbalance;
                     bestSolution = currentSolution;
                 }
             }
+
             // Update population (imitation of bee behavior: onlooker bees and scout bees)
             population = updatePopulation(population);
         }

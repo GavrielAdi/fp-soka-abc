@@ -22,109 +22,116 @@ import org.cloudbus.cloudsim.provisioners.BwProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
-/**
- * Main class untuk menjalankan simulasi CloudSim dengan optimasi menggunakan algoritma 
- * Artificial Bee Colony (ABC) untuk penjadwalan tugas.
- */
 public class Main {
     public static void main(String[] args) {
         try {
-            int numUsers = 1; // Hanya satu pengguna
-            Calendar calendar = Calendar.getInstance();
-            CloudSim.init(numUsers, calendar, false);
+            // Definisikan beberapa skenario
+            List<Scenario> scenarios = List.of(
+                new Scenario(5, 100, 2, 4, 1000, 750, 1250),  // Skenario 1
+                new Scenario(10, 200, 3, 4, 1200, 800, 1500) // Skenario 2
+            );
 
-            // Membuat datacenter
-            Datacenter datacenter = createDatacenter("Datacenter");
-
-            // Membuat Datacenter Broker
-            DatacenterBroker broker = new DatacenterBroker("Broker");
-
-            // Membuat Virtual Machines (VM)
-            List<Vm> vmList = new ArrayList<>();
-            int vmCount = 5; // Jumlah VM
-            for (int i = 0; i < vmCount; i++) {
-                Vm vm = new Vm(i, broker.getId(), 1000, 1, 2048, 10000, 1000, "Xen", new CloudletSchedulerTimeShared());
-                vmList.add(vm);
+            // Jalankan setiap skenario
+            for (int i = 0; i < scenarios.size(); i++) {
+                Scenario scenario = scenarios.get(i);
+                System.out.println("\n=== Running Scenario " + (i + 1) + " ===");
+                runScenarioMultipleTimes(scenario, 10); // Jalankan 10 kali per skenario
             }
-            broker.submitVmList(vmList);
-
-            // Membuat Cloudlets (tugas-tugas yang harus dijalankan)
-            List<Cloudlet> cloudletList = new ArrayList<>();
-            int cloudletCount = 100; // Jumlah tugas
-            for (int i = 0; i < cloudletCount; i++) {
-                Cloudlet cloudlet = new Cloudlet(
-                    i, 
-                    getRandomInRange(750, 1250), 
-                    1, 
-                    getRandomInRange(75, 125), 
-                    getRandomInRange(25, 75), 
-                    new UtilizationModelFull(), 
-                    new UtilizationModelFull(), 
-                    new UtilizationModelFull()
-                );
-                cloudlet.setUserId(broker.getId());
-                cloudletList.add(cloudlet);
-            }
-            broker.submitCloudletList(cloudletList);
-
-            // Gunakan Artificial Bee Colony (ABC) untuk optimasi penjadwalan
-            TaskSchedulerABC TaskSchedulerABC = new TaskSchedulerABC(vmList, cloudletList);
-            TaskSchedulerABC.optimize();
-
-            // Menjalankan simulasi CloudSim
-            CloudSim.startSimulation();
-            CloudSim.stopSimulation();
-
-            // Menampilkan hasil akhir
-            List<Cloudlet> finishedTasks = broker.getCloudletReceivedList();
-            printCloudletList(finishedTasks);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // Fungsi untuk mencetak daftar cloudlet setelah eksekusi
-    public static void printCloudletList(List<Cloudlet> list) {
-        int size = list.size();
-        Cloudlet cloudlet;
+    // Fungsi untuk menjalankan satu skenario beberapa kali dengan output tabel
+    public static void runScenarioMultipleTimes(Scenario scenario, int times) {
+        List<Double> makespanResults = new ArrayList<>();
+        List<Double> imbalanceResults = new ArrayList<>();
 
-        System.out.println("\n========== OUTPUT ==========");
-        System.out.println("Cloudlet ID\tStatus\tData center ID\tVM ID\tTime\tStart Time\tFinish Time");
+        System.out.println("Scenario: " + scenario.toString());
+        printTableHeader();
 
-        DecimalFormat dft = new DecimalFormat("###.##");
-        for (int i = 0; i < size; i++) {
-            cloudlet = list.get(i);
+        for (int i = 0; i < times; i++) {
+            double[] results = runScenario(scenario);
+            makespanResults.add(results[0]);
+            imbalanceResults.add(results[1]);
 
-            System.out.print(cloudlet.getCloudletId() + "\t\t");
+            // Cetak hasil untuk iterasi ini
+            printTableRow(i + 1, results[0], results[1]);
+        }
 
-            if (cloudlet.getCloudletStatus() == Cloudlet.SUCCESS) {
-                System.out.print("SUCCESS\t");
-                System.out.print(cloudlet.getResourceId() + "\t\t");
-                System.out.print(cloudlet.getVmId() + "\t");
-                System.out.print(dft.format(cloudlet.getActualCPUTime()) + "\t");
-                System.out.print(dft.format(cloudlet.getExecStartTime()) + "\t\t");
-                System.out.print(dft.format(cloudlet.getFinishTime()) + "\t");
-            } else {
-                System.out.print("FAILED\t");
+        // Hitung rata-rata hasil
+        double avgMakespan = makespanResults.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        double avgImbalance = imbalanceResults.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+
+        // Cetak rata-rata hasil
+        printTableFooter(avgMakespan, avgImbalance);
+    }
+
+    // Fungsi untuk menjalankan satu skenario
+    public static double[] runScenario(Scenario scenario) {
+        try {
+            int numUsers = 1; // Hanya satu pengguna
+            Calendar calendar = Calendar.getInstance();
+            CloudSim.init(numUsers, calendar, false);
+
+            // Buat datacenter
+            Datacenter datacenter = createDatacenter(scenario.numHosts, scenario.peCountPerHost);
+
+            // Buat broker
+            DatacenterBroker broker = new DatacenterBroker("Broker");
+
+            // Buat Virtual Machines (VM)
+            List<Vm> vmList = new ArrayList<>();
+            for (int i = 0; i < scenario.numVms; i++) {
+                Vm vm = new Vm(i, broker.getId(), scenario.vmMips, 1, 2048, 10000, 1000, "Xen", new CloudletSchedulerTimeShared());
+                vmList.add(vm);
             }
-            System.out.println();
+            broker.submitVmList(vmList);
+
+            // Buat Cloudlets
+            List<Cloudlet> cloudletList = new ArrayList<>();
+            for (int i = 0; i < scenario.numCloudlets; i++) {
+                Cloudlet cloudlet = new Cloudlet(
+                    i,
+                    getRandomInRange(scenario.cloudletLengthMin, scenario.cloudletLengthMax),
+                    1,
+                    getRandomInRange(75, 125),
+                    getRandomInRange(25, 75),
+                    new UtilizationModelFull(),
+                    new UtilizationModelFull(),
+                    new UtilizationModelFull());
+                cloudlet.setUserId(broker.getId());
+                cloudletList.add(cloudlet);
+            }
+            broker.submitCloudletList(cloudletList);
+
+            // Optimasi dengan ABC
+            TaskSchedulerABC taskScheduler = new TaskSchedulerABC(vmList, cloudletList);
+            taskScheduler.optimize();
+
+            // Hitung hasil
+            double makespan = taskScheduler.getFitnessFunction().calculateMakespan(taskScheduler.getBestAllocation());
+            double imbalance = taskScheduler.getFitnessFunction().calculateDegreeOfImbalance(taskScheduler.getBestAllocation());
+
+            // Kembalikan hasil tanpa mencetak ke console
+            return new double[]{makespan, imbalance};
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new double[]{Double.MAX_VALUE, Double.MAX_VALUE};
         }
     }
 
-    // Fungsi untuk menghasilkan nilai acak dalam rentang
+    // Helper untuk menghasilkan nilai acak dalam rentang
     public static int getRandomInRange(int min, int max) {
         return (int) (Math.random() * (max - min + 1)) + min;
     }
-
-    // Fungsi untuk membuat Datacenter
-    private static Datacenter createDatacenter(String name) {
+    
+    // Helper untuk membuat Datacenter
+    private static Datacenter createDatacenter(int numHosts, int peCountPerHost) {
         List<Host> hostList = new ArrayList<>();
-        int hostCount = 2;
-        for (int i = 0; i < hostCount; i++) {
+        for (int i = 0; i < numHosts; i++) {
             List<Pe> peList = new ArrayList<>();
-            int peCount = 4;
-            for (int j = 0; j < peCount; j++) {
+            for (int j = 0; j < peCountPerHost; j++) {
                 peList.add(new Pe(j, new PeProvisionerSimple(1000)));
             }
             Host host = new Host(i, new RamProvisionerSimple(16384), new BwProvisionerSimple(100000), 1000000, peList, new VmSchedulerTimeShared(peList));
@@ -141,13 +148,31 @@ public class Main {
         double costPerBw = 0.0;
 
         DatacenterCharacteristics characteristics = new DatacenterCharacteristics(
-                arch, os, vmm, hostList, timeZone, costPerSec, costPerMem, costPerStorage, costPerBw);
+            arch, os, vmm, hostList, timeZone, costPerSec, costPerMem, costPerStorage, costPerBw);
 
         try {
-            return new Datacenter(name, characteristics, new VmAllocationPolicySimple(hostList), new LinkedList<>(), 0);
+            return new Datacenter("Datacenter", characteristics, new VmAllocationPolicySimple(hostList), new LinkedList<>(), 0);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
+    }
+
+    // Helper untuk mencetak header tabel
+    public static void printTableHeader() {
+        System.out.printf("%-10s | %-15s | %-25s%n", "Iteration", "Makespan", "Degree of Imbalance");
+        System.out.println("-------------------------------------------------------------");
+    }
+
+    // Helper untuk mencetak baris tabel
+    public static void printTableRow(int iteration, double makespan, double imbalance) {
+        System.out.printf("%-10d | %-15.6f | %-25.6f%n", iteration, makespan, imbalance);
+    }
+
+    // Helper untuk mencetak footer hasil rata-rata
+    public static void printTableFooter(double avgMakespan, double avgImbalance) {
+        System.out.println("-------------------------------------------------------------");
+        System.out.printf("%-10s | %-15.6f | %-25.6f%n", "Average", avgMakespan, avgImbalance);
+        System.out.println();
     }
 }

@@ -50,12 +50,4 @@ public class FitnessFunction {
     public int getVmCount() {
         return vmList.size();
     }
-
-    public double calculateFitness(int[] allocation) {
-        double makespan = calculateMakespan(allocation);
-        double degreeOfImbalance = calculateDegreeOfImbalance(allocation);
-        
-        // Fungsi fitness: Meminimalkan makespan dan degree of imbalance
-        return makespan + degreeOfImbalance;
-    }
 }
