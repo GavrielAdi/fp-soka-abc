@@ -1,8 +1,6 @@
 package org.abc.cloudsim;
 
-import java.util.Arrays;
 import java.util.List;
-
 import org.cloudbus.cloudsim.Vm;
 import org.cloudbus.cloudsim.Cloudlet;
 
@@ -24,7 +22,7 @@ public class FitnessFunction {
             double executionTime = cloudlet.getCloudletLength() / vm.getMips();
             vmFinishTimes[allocation[i]] += executionTime;
         }
-        return Arrays.stream(vmFinishTimes).max().orElse(0.0);
+        return getMax(vmFinishTimes);
     }
 
     // Hitung Degree of Imbalance
@@ -36,11 +34,39 @@ public class FitnessFunction {
             double executionTime = cloudlet.getCloudletLength() / vm.getMips();
             vmFinishTimes[allocation[i]] += executionTime;
         }
-        double avgFinishTime = Arrays.stream(vmFinishTimes).average().orElse(0.0);
-        double imbalance = Arrays.stream(vmFinishTimes)
-                                .map(time -> Math.abs(time - avgFinishTime))
-                                .sum();
+        double avgFinishTime = getAverage(vmFinishTimes);
+        double imbalance = 0.0;
+        for (double finishTime : vmFinishTimes) {
+            imbalance += Math.abs(finishTime - avgFinishTime);
+        }
         return imbalance / vmList.size();
+    }
+
+    // Hitung Fitness: Kombinasi Makespan dan Degree of Imbalance
+    public double calculateFitness(int[] allocation) {
+        double makespan = calculateMakespan(allocation);
+        double imbalance = calculateDegreeOfImbalance(allocation);
+        return makespan + imbalance; // Kombinasi kedua metrik
+    }
+
+    // Fungsi utilitas untuk mendapatkan nilai maksimum
+    private double getMax(double[] array) {
+        double max = array[0];
+        for (double val : array) {
+            if (val > max) {
+                max = val;
+            }
+        }
+        return max;
+    }
+
+    // Fungsi utilitas untuk mendapatkan rata-rata
+    private double getAverage(double[] array) {
+        double sum = 0.0;
+        for (double val : array) {
+            sum += val;
+        }
+        return sum / array.length;
     }
 
     public int getCloudletCount() {

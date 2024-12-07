@@ -27,8 +27,17 @@ public class Main {
         try {
             // Definisikan beberapa skenario
             List<Scenario> scenarios = List.of(
-                new Scenario(5, 100, 2, 4, 1000, 750, 1250),  // Skenario 1
-                new Scenario(10, 200, 3, 4, 1200, 800, 1500) // Skenario 2
+                // VMs, Cloudlets, Hosts, PEs per Host, VM MIPS, Cloudlet Length
+                // Skenario 1
+                new Scenario(5, 50, 2, 4, 1000, 750, 1250),  // VM: 5, Cloudlets: 50
+                // Skenario 2
+                new Scenario(10, 100, 2, 4, 1000, 750, 1250), // VM: 10, Cloudlets: 100
+                // Skenario 3
+                new Scenario(15, 150, 2, 4, 1000, 750, 1250), // VM: 15, Cloudlets: 150
+                // Skenario 4
+                new Scenario(20, 200, 2, 4, 1000, 750, 1250), // VM: 20, Cloudlets: 200
+                // Skenario 5
+                new Scenario(25, 250, 2, 4, 1000, 750, 1250)  // VM: 25, Cloudlets: 250
             );
 
             // Jalankan setiap skenario

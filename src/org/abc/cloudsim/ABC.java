@@ -1,74 +1,137 @@
 package org.abc.cloudsim;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
+/**
+ * Implementasi algoritma Artificial Bee Colony (ABC) dengan parameter sesuai paper.
+ */
 public class ABC {
-    private final int populationSize = 50;  // Ukuran populasi
-    private final int maxIterations = 100;  // Jumlah iterasi
-    private final double alpha = 0.5;
-    private final double beta = 0.3;
-    private final double delta = 0.2;
-    
-    private FitnessFunction fitnessFunction;
+    // Parameter dari paper
+    private final int numberOfBees = 100;            // Jumlah total lebah
+    private final int numberOfActive = 75;           // Jumlah lebah aktif
+    private final int numberOfScout = 15;            // Jumlah lebah scout
+    private final int numberOfInactive = 10;         // Jumlah lebah inaktif
+    private final int maxNumberOfVisits = 70;        // Jumlah maksimal kunjungan
+    private final double probMistake = 0.01;        // Probabilitas kesalahan
+    private final double probPersuasion = 0.90;     // Probabilitas persuasi
+    private final int tmax = 100;                    // Iterasi maksimal
+
+    private FitnessFunction fitnessFunction;         // Fungsi Fitness
+    private int[] bestSolution;                      // Solusi terbaik
+    private double bestFitness = Double.MAX_VALUE;   // Fitness terbaik
+    private int[] visitCounts;                       // Jumlah kunjungan per solusi
 
     public ABC(FitnessFunction fitnessFunction) {
         this.fitnessFunction = fitnessFunction;
+        this.visitCounts = new int[fitnessFunction.getCloudletCount()]; // Inisialisasi array kunjungan
     }
 
+    // Optimasi dengan algoritma ABC
     public int[] optimize() {
-        int[] bestSolution = new int[fitnessFunction.getCloudletCount()];
-        double bestMakespan = Double.MAX_VALUE;
-        double bestDegreeOfImbalance = Double.MAX_VALUE;
+        // Inisialisasi solusi awal
+        int[] currentSolution = generateInitialSolution();
+        double currentFitness = fitnessFunction.calculateFitness(currentSolution);
 
-        List<int[]> population = initializePopulation();
+        for (int iter = 0; iter < tmax; iter++) {
+            List<int[]> activeBees = generateBees(numberOfActive);  // Lebah aktif
+            List<int[]> scoutBees = generateBees(numberOfScout);    // Lebah scout
 
-        for (int iter = 0; iter < maxIterations; iter++) {
-            for (int i = 0; i < populationSize; i++) {
-                int[] currentSolution = population.get(i);
+            // Proses lebah aktif
+            for (int i = 0; i < numberOfActive; i++) {
+                activeBees.get(i)[0] = exploreActiveBee(activeBees.get(i)[0], probPersuasion);
+            }
 
-                // Hitung Makespan dan Degree of Imbalance
-                double makespan = fitnessFunction.calculateMakespan(currentSolution);
-                double degreeOfImbalance = fitnessFunction.calculateDegreeOfImbalance(currentSolution);
+            // Proses lebah scout
+            for (int i = 0; i < numberOfScout; i++) {
+                scoutBees.get(i)[0] = exploreScoutBee(scoutBees.get(i)[0], probMistake);
+            }
 
-                // Jika solusi lebih baik berdasarkan Makespan dan Degree of Imbalance
-                if (makespan < bestMakespan && degreeOfImbalance < bestDegreeOfImbalance) {
-                    bestMakespan = makespan;
-                    bestDegreeOfImbalance = degreeOfImbalance;
-                    bestSolution = currentSolution;
+            // Evaluasi fitness dan update solusi terbaik
+            for (int i = 0; i < activeBees.size(); i++) {
+                double fitness = fitnessFunction.calculateFitness(activeBees.get(i));
+                if (fitness < bestFitness) {
+                    bestFitness = fitness;
+                    bestSolution = activeBees.get(i);
                 }
             }
 
-            // Update population (imitation of bee behavior: onlooker bees and scout bees)
-            population = updatePopulation(population);
+            // Update jumlah kunjungan
+            updateVisits();
         }
         return bestSolution;
     }
 
-    private List<int[]> initializePopulation() {
-        List<int[]> population = new ArrayList<>();
-        for (int i = 0; i < populationSize; i++) {
-            population.add(generateSolution());
-        }
-        return population;
-    }
-
-    private List<int[]> updatePopulation(List<int[]> population) {
-        List<int[]> newPopulation = new ArrayList<>();
-        for (int[] solution : population) {
-            // Simulate the onlooker and scout bee behavior
-            int[] newSolution = generateSolution(); // This could also involve making small changes to the current solution
-            newPopulation.add(newSolution);
-        }
-        return newPopulation;
-    }
-
-    private int[] generateSolution() {
+    // Fungsi untuk menggenerasi solusi awal secara acak
+    private int[] generateInitialSolution() {
         int[] solution = new int[fitnessFunction.getCloudletCount()];
+        Random random = new Random();
         for (int i = 0; i < solution.length; i++) {
-            solution[i] = new Random().nextInt(fitnessFunction.getVmCount());
+            solution[i] = random.nextInt(fitnessFunction.getVmCount());
         }
         return solution;
+    }
+
+    // Fungsi untuk mengeksplorasi solusi dengan lebah aktif
+    private int exploreActiveBee(int bee, double prob) {
+        Random random = new Random();
+        if (random.nextDouble() < prob) {
+            // Lakukan pencarian eksplorasi berdasarkan probabilitas
+            bee = random.nextInt(fitnessFunction.getVmCount());
+        }
+        return bee;
+    }
+
+    // Fungsi untuk mengeksplorasi solusi dengan lebah scout
+    private int exploreScoutBee(int bee, double prob) {
+        Random random = new Random();
+        if (random.nextDouble() < prob) {
+            // Lakukan pencarian eksplorasi lebih jauh
+            bee = random.nextInt(fitnessFunction.getVmCount());
+        }
+        return bee;
+    }
+
+    // Fungsi untuk memperbarui jumlah kunjungan
+    private void updateVisits() {
+        for (int i = 0; i < visitCounts.length; i++) {
+            // Jika jumlah kunjungan melebihi maxNumberOfVisits, reset solusi
+            if (visitCounts[i] > maxNumberOfVisits) {
+                resetSolutionAtIndex(i);  // Reset solusi tertentu
+                visitCounts[i] = 0;       // Reset jumlah kunjungan
+            } else {
+                visitCounts[i]++;         // Tambah jumlah kunjungan
+            }
+        }
+    }
+
+    // Fungsi untuk mereset solusi pada indeks tertentu
+    private void resetSolutionAtIndex(int index) {
+        Random random = new Random();
+        // Reset solusi dengan VM baru secara acak
+        bestSolution[index] = random.nextInt(fitnessFunction.getVmCount());
+    }
+
+    // Fungsi untuk menggenerasi solusi acak berdasarkan jumlah lebah
+    private List<int[]> generateBees(int numberOfBees) {
+        List<int[]> bees = new ArrayList<>();
+        for (int i = 0; i < numberOfBees; i++) {
+            int[] bee = new int[fitnessFunction.getCloudletCount()];
+            Random random = new Random();
+            for (int j = 0; j < bee.length; j++) {
+                bee[j] = random.nextInt(fitnessFunction.getVmCount());
+            }
+            bees.add(bee);
+        }
+        return bees;
+    }
+
+    // Getter untuk solusi terbaik
+    public int[] getBestSolution() {
+        return bestSolution;
+    }
+
+    // Getter untuk fitness terbaik
+    public double getBestFitness() {
+        return bestFitness;
     }
 }
