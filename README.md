@@ -18,3 +18,13 @@ javac -cp ".:lib/*" src/org/abc/cloudsim/*.java -d bin
 ```sh
 java -cp ".:bin:lib/*" org.abc.cloudsim.Main
 ```
+
+## Hasil Simulasi
+Simulasi yang dilakukan dimasukkan ke dalam folder simulation-result dengan total 25 file, dengan format "Simulation Result Scenario (VMs=x, Cloudlets=y).xlsx".
+<br>
+Berikut semua parameter yang diatur (VMs=x, Cloudlets=y):
+1. VM=5, Cloudlets=50,100,150,200,250
+2. VM=10, Cloudlets=50,100,150,200,250
+3. VM=15, Cloudlets=50,100,150,200,250
+4. VM=20, Cloudlets=50,100,150,200,250
+5. VM=25, Cloudlets=50,100,150,200,250
