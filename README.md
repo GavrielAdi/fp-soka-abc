@@ -16,5 +16,5 @@ javac -cp ".:lib/*" src/org/abc/cloudsim/*.java -d bin
 
 2. Jalankan
 ```sh
-java -cp ".:lib/cloudsim-3.0.3.jar:lib/commons-math3-3.6.1.jar:bin" org.abc.cloudsim.Main
+java -cp ".:bin:lib/*" org.abc.cloudsim.Main
 ```
