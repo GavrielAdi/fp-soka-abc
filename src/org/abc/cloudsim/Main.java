@@ -127,9 +127,7 @@ public class Main {
     public static List<Cloudlet> getCloudletAssignments(Scenario scenario, int iteration) {
         // This should return the actual list of Cloudlets assigned during each iteration
         List<Cloudlet> cloudletList = new ArrayList<>();
-        
-        // Here you can simulate or retrieve the list of Cloudlets (as you are doing in `runScenario()`)
-        // For example, you could get cloudletList from the runScenario or a different method
+    
         
         return cloudletList;
     }
