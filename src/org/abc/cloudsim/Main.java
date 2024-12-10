@@ -46,81 +46,81 @@ public class Main {
         }
     }
 
-public static void runScenarioMultipleTimes(Scenario scenario, int times) {
-    List<Double> makespanResults = new ArrayList<>();
-    List<Double> imbalanceResults = new ArrayList<>();
-    List<List<Cloudlet>> cloudletAssignments = new ArrayList<>();  // List to store Cloudlet assignments
+    public static void runScenarioMultipleTimes(Scenario scenario, int times) {
+        List<Double> makespanResults = new ArrayList<>();
+        List<Double> imbalanceResults = new ArrayList<>();
+        List<List<Cloudlet>> cloudletAssignments = new ArrayList<>();  // List to store Cloudlet assignments
 
-    // Run multiple iterations of the simulation
-    for (int i = 0; i < times; i++) {
-        Object[] results = runScenario(scenario, i + 1);  // Get results and cloudlet assignments
-        makespanResults.add((Double) results[0]);
-        imbalanceResults.add((Double) results[1]);
+        // Run multiple iterations of the simulation
+        for (int i = 0; i < times; i++) {
+            Object[] results = runScenario(scenario, i + 1);  // Get results and cloudlet assignments
+            makespanResults.add((Double) results[0]);
+            imbalanceResults.add((Double) results[1]);
 
-        // Collect Cloudlet assignments for this iteration
-        List<Cloudlet> cloudletsForIteration = (List<Cloudlet>) results[2];
-        cloudletAssignments.add(cloudletsForIteration);
+            // Collect Cloudlet assignments for this iteration
+            List<Cloudlet> cloudletsForIteration = (List<Cloudlet>) results[2];
+            cloudletAssignments.add(cloudletsForIteration);
+        }
+
+        // Write results to Excel
+        String filename = String.format("simulation-result/Simulation Results Scenario (VMs=%d, Cloudlets=%d).xlsx", scenario.numVms, scenario.numCloudlets);
+        ExcelWriter.writeResultsToExcel(makespanResults, imbalanceResults, filename, cloudletAssignments);
+
     }
 
-    // Write results to Excel
-    String filename = String.format("simulation-result/Simulation Results Scenario (VMs=%d, Cloudlets=%d).xlsx", scenario.numVms, scenario.numCloudlets);
-    ExcelWriter.writeResultsToExcel(makespanResults, imbalanceResults, filename, cloudletAssignments);
 
-}
+    public static Object[] runScenario(Scenario scenario, int iteration) {
+        try {
+            CloudSim.init(1, Calendar.getInstance(), false);
 
+            Datacenter datacenter = createDatacenter(scenario.numHosts, scenario.peCountPerHost);
+            DatacenterBroker broker = new DatacenterBroker("Broker");
 
-public static Object[] runScenario(Scenario scenario, int iteration) {
-    try {
-        CloudSim.init(1, Calendar.getInstance(), false);
+            // Create VMs
+            List<Vm> vmList = new ArrayList<>();
+            for (int i = 0; i < scenario.numVms; i++) {
+                vmList.add(new Vm(i, broker.getId(), scenario.vmMips, 1, 2048, 10000, 1000, "Xen", new CloudletSchedulerTimeShared()));
+            }
+            broker.submitVmList(vmList);
 
-        Datacenter datacenter = createDatacenter(scenario.numHosts, scenario.peCountPerHost);
-        DatacenterBroker broker = new DatacenterBroker("Broker");
+            // Create Cloudlets
+            List<Cloudlet> cloudletList = new ArrayList<>();
+            for (int i = 0; i < scenario.numCloudlets; i++) {
+                cloudletList.add(new Cloudlet(
+                        i,
+                        getRandomInRange(scenario.cloudletLengthMin, scenario.cloudletLengthMax),
+                        1,
+                        300,
+                        300,
+                        new UtilizationModelFull(),
+                        new UtilizationModelFull(),
+                        new UtilizationModelFull()
+                ));
+            }
+            broker.submitCloudletList(cloudletList);
 
-        // Create VMs
-        List<Vm> vmList = new ArrayList<>();
-        for (int i = 0; i < scenario.numVms; i++) {
-            vmList.add(new Vm(i, broker.getId(), scenario.vmMips, 1, 2048, 10000, 1000, "Xen", new CloudletSchedulerTimeShared()));
+            // Simulate and assign tasks
+            TaskSchedulerABC taskScheduler = new TaskSchedulerABC(vmList, cloudletList);
+            taskScheduler.optimize();
+
+            double makespan = taskScheduler.getFitnessFunction().calculateMakespan(taskScheduler.getBestAllocation());
+            double imbalance = taskScheduler.getFitnessFunction().calculateDegreeOfImbalance(taskScheduler.getBestAllocation());
+
+            // Collect the cloudlet assignments
+            List<Cloudlet> cloudletAssignments = new ArrayList<>();
+            for (Cloudlet cloudlet : cloudletList) {
+                int assignedVmId = cloudlet.getVmId();
+                System.out.println("Cloudlet ID: " + cloudlet.getCloudletId() + " assigned to VM ID: " + assignedVmId);
+                cloudletAssignments.add(cloudlet);  // Store the cloudlet
+            }
+
+            // Return makespan, imbalance, and cloudlet assignments
+            return new Object[]{makespan, imbalance, cloudletAssignments};
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new Object[]{Double.MAX_VALUE, Double.MAX_VALUE, new ArrayList<Cloudlet>()};
         }
-        broker.submitVmList(vmList);
-
-        // Create Cloudlets
-        List<Cloudlet> cloudletList = new ArrayList<>();
-        for (int i = 0; i < scenario.numCloudlets; i++) {
-            cloudletList.add(new Cloudlet(
-                    i,
-                    getRandomInRange(scenario.cloudletLengthMin, scenario.cloudletLengthMax),
-                    1,
-                    300,
-                    300,
-                    new UtilizationModelFull(),
-                    new UtilizationModelFull(),
-                    new UtilizationModelFull()
-            ));
-        }
-        broker.submitCloudletList(cloudletList);
-
-        // Simulate and assign tasks
-        TaskSchedulerABC taskScheduler = new TaskSchedulerABC(vmList, cloudletList);
-        taskScheduler.optimize();
-
-        double makespan = taskScheduler.getFitnessFunction().calculateMakespan(taskScheduler.getBestAllocation());
-        double imbalance = taskScheduler.getFitnessFunction().calculateDegreeOfImbalance(taskScheduler.getBestAllocation());
-
-        // Collect the cloudlet assignments
-        List<Cloudlet> cloudletAssignments = new ArrayList<>();
-        for (Cloudlet cloudlet : cloudletList) {
-            int assignedVmId = cloudlet.getVmId();
-            System.out.println("Cloudlet ID: " + cloudlet.getCloudletId() + " assigned to VM ID: " + assignedVmId);
-            cloudletAssignments.add(cloudlet);  // Store the cloudlet
-        }
-
-        // Return makespan, imbalance, and cloudlet assignments
-        return new Object[]{makespan, imbalance, cloudletAssignments};
-    } catch (Exception e) {
-        e.printStackTrace();
-        return new Object[]{Double.MAX_VALUE, Double.MAX_VALUE, new ArrayList<Cloudlet>()};
     }
-}
 
 
 
